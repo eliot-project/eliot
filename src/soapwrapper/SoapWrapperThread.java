@@ -34,26 +34,28 @@ public class SoapWrapperThread extends Thread {
 		try {
 			FCVirtualMachine vmTarget = GFossCloud.getVMTarget(FCVMType.EPCIS_QI);
 			
-			if (vmTarget != null)
+			if (vmTarget != null) {
 				System.out.println(
 					"Dispatching \"" + vmTarget.getType().Name + "\" request " +
 					"to VM ID \"" + vmTarget.getID() + "\" IP " + vmTarget.getNetworkIP());
 			
-//			String req_uri = GhttpEx.getRequestURI().toASCIIString();
-//			String dest_IP = vmTarget.getNetworkIP();
-			String dest_IP = "192.168.2.151";
-			String req_body = IOUtils.toString(GhttpEx.getRequestBody(), "UTF-8");
-			String dest_uri =
+//				String req_uri = GhttpEx.getRequestURI().toASCIIString();
+				String dest_IP = vmTarget.getNetworkIP();
+//				String dest_IP = "192.168.2.151";
+				String req_body = IOUtils.toString(GhttpEx.getRequestBody(), "UTF-8");
+				String dest_uri =
 					"http://" +
 					dest_IP + ":" +
 					FCVMType.EPCIS_QI.ServicePort +
 					FCVMType.EPCIS_QI.ServiceURI;
 
-			String response = MyHttpPost(dest_uri, req_body);
-			GhttpEx.sendResponseHeaders(200, response.length());
-			OutputStream os = GhttpEx.getResponseBody();
-			os.write(response.getBytes());
-			os.close();
+//				String dest_uri = "http://localhost:8082";
+				String response = MyHttpPost(dest_uri, req_body);
+				GhttpEx.sendResponseHeaders(200, response.length());
+				OutputStream os = GhttpEx.getResponseBody();
+				os.write(response.getBytes());
+				os.close();
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

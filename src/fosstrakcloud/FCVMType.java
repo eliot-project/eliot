@@ -6,8 +6,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Locale;
 import java.util.Properties;
+import org.apache.commons.codec.binary.Base64;
 
 public enum FCVMType {
 	DATABASE("database"),
@@ -17,24 +17,31 @@ public enum FCVMType {
 	EPCIS_QI("epcis_query_interface");
 		
 	public String ID;
+	public int IDLastVMTarget;
 	public String Name;
-	public String VMTemplate;
+	public String Template;
 	public boolean Scalable;
 	public boolean AutoStart;
+	public boolean StaticIP;
 	public int LowerThreshold;
 	public int UpperThreshold;
 	public int ServicePort;
 	public String ServiceURI;
-	public float CPU;
-	public int Memory;
-	public String Disk_Image;
-	public String Image_Uname;
-	public String Network_Uname;
-	public String Network;
 	public String IP;	
 
+	private int tryParseInt(String value) { 
+		 try {  
+		     return Integer.parseInt("0" + value);  
+		  } catch(NumberFormatException nfe) {  
+		      // Log exception.
+		      return 0;
+		  }  
+		}
+	
 	private FCVMType(String AID) {
 		ID = AID;
+		IDLastVMTarget = 0;
+		
 		LoadConfig();
 	}
 	
@@ -54,32 +61,14 @@ public enum FCVMType {
 				Name = prop.getProperty("name");
 				AutoStart = Boolean.parseBoolean(prop.getProperty("auto_start"));
 				Scalable = Boolean.parseBoolean(prop.getProperty("scalable"));
-				LowerThreshold = Integer.parseInt(prop.getProperty("lower_threshold"));
-				UpperThreshold = Integer.parseInt(prop.getProperty("upper_threshold"));
-				ServicePort = Integer.parseInt(prop.getProperty("service_port"));
+				StaticIP = Boolean.parseBoolean(prop.getProperty("static_ip"));
+				LowerThreshold = tryParseInt(prop.getProperty("lower_threshold"));
+				UpperThreshold = tryParseInt(prop.getProperty("upper_threshold"));
+				ServicePort = tryParseInt(prop.getProperty("service_port"));
 				ServiceURI = prop.getProperty("service_uri");
-				CPU = Float.parseFloat(prop.getProperty("cpu"));
-				Memory = Integer.parseInt(prop.getProperty("memory"));
-				Disk_Image = prop.getProperty("disk_image");
-				Image_Uname = prop.getProperty("image_uname");
-				Network_Uname = prop.getProperty("network_uname");
-				Network = prop.getProperty("network");
-				IP = prop.getProperty("ip");
-
-				VMTemplate =
-						String.format(
-							Locale.ENGLISH,
-							"NAME=\"%s\"\n" +
-							"CONTEXT=[SSH_PUBLIC_KEY=\"$USER[SSH_PUBLIC_KEY]\",NETWORK=\"YES\"]\n" +
-							"MEMORY=\"%d\"\n"+
-							"DISK=[IMAGE=\"%s\",IMAGE_UNAME=\"%s\"]\n" +
-							"FEATURES=[ACPI=\"no\"]\n" +
-							"DESCRIPTION=\"Fosstrak in a cloud\"\n" +
-							"GRAPHICS=[TYPE=\"VNC\",LISTEN=\"0.0.0.0\"]\n" +
-							"NIC=[NETWORK_UNAME=\"%s\",NETWORK=\"%s\",IP=\"%%s\"]\n" +
-							"CPU=\"%.1f\"",
-							Name, Memory, Disk_Image, Image_Uname, Network_Uname, Network, CPU);
-
+				byte[] encTemplate = prop.getProperty("template").getBytes();
+				Template = new String(Base64.decodeBase64(encTemplate));
+				
 			} catch (IOException ex) {
 				ex.printStackTrace();
 			} finally {
@@ -101,22 +90,18 @@ public enum FCVMType {
 	 
 		try {
 			output = new FileOutputStream(cfgFileName);
+			byte[] encTemplate = Base64.encodeBase64(Template.getBytes());
 	 
 // Set the properties value
 			prop.setProperty("name", Name);
 			prop.setProperty("auto_start", Boolean.toString(AutoStart));
 			prop.setProperty("scalable", Boolean.toString(Scalable));
+			prop.setProperty("static_ip", Boolean.toString(StaticIP));
 			prop.setProperty("lower_threshold", Integer.toString(LowerThreshold));
 			prop.setProperty("upper_threshold", Integer.toString(UpperThreshold));
 			prop.setProperty("service_port", Integer.toString(ServicePort));
 			prop.setProperty("service_uri", ServiceURI);
-			prop.setProperty("cpu", String.format(Locale.ENGLISH, "%.1f", CPU));
-			prop.setProperty("memory", Integer.toString(Memory));
-			prop.setProperty("disk_image", Disk_Image);
-			prop.setProperty("image_uname", Image_Uname);
-			prop.setProperty("network_uname", Network_Uname);
-			prop.setProperty("network", Network);
-			prop.setProperty("ip", IP);
+			prop.setProperty("template", new String(encTemplate));
 	 
 // Save properties to project folder
 			prop.store(output, Name + " template parameters");

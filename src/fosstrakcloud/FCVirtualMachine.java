@@ -43,7 +43,7 @@ public class FCVirtualMachine {
 		
 // Initialize VM Template
 		System.out.println("Defining template type \"" + AType.Name + "\"");
-		VMTemplate = String.format(Type.VMTemplate,	NetworkIP);
+		VMTemplate = String.format(Type.Template, NetworkIP);
 	}
 	
 	public void ShowInfo() {
@@ -117,7 +117,7 @@ public class FCVirtualMachine {
 			System.out.print("Trying to allocate the virtual machine \"" + Type.Name + "\"...");
 			
 // Allocate the VM
-			OneResponse rc = VirtualMachine.allocate(GFossCloud.getOneClient(), VMTemplate, true);
+			OneResponse rc = VirtualMachine.allocate(GFossCloud.getOneClient(), VMTemplate, false);
 
 		    if (rc.isError())
 		    {
@@ -130,29 +130,20 @@ public class FCVirtualMachine {
 
 // Instantiate the VM
 		    VMInstance = new VirtualMachine(ID, GFossCloud.getOneClient());
-
-// Deploy the VM
-		    System.out.print("Trying to deploy the new VM \"" + Type.Name + "\"...");
-		    rc = VMInstance.deploy(0);
-
-		    if (rc.isError())
-		    {
-		        System.out.println("failed!");
-		        throw new Exception(rc.getErrorMessage());
-		    }
-		    else
-		    {
+	    	
+//Retrieve new VM IP
+			OneResponse oneResp = VMInstance.info();
+			
+			if (oneResp.isError()){
+			    System.out.println("Error retrieving VM info");
+			    System.out.println(oneResp.getErrorMessage());
+			}
+			else
+			{
 		    	VMDeployed = true;
-		    	System.out.println("success!");
-		    	
-// Retrieve new VM IP
-				OneResponse oneResp = VMInstance.info();
-				
-				if (!oneResp.isError()) {
-					NetworkIP = VMInstance.xpath("TEMPLATE/CONTEXT/ETH0_IP");
-				    System.out.println("New VM \"" + Type.Name + "\" has IP " + NetworkIP);
-				}
-		    }
+				NetworkIP = VMInstance.xpath("TEMPLATE/CONTEXT/ETH0_IP");
+			    System.out.println("New VM \"" + Type.Name + "\" has IP " + NetworkIP);
+			}
 		}
 		catch (Exception e)
 		{

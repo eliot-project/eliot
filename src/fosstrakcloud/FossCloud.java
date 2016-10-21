@@ -28,11 +28,9 @@ public class FossCloud {
 	FossCloudMonitor GFossCloudMonitor;
 	SoapWrapperServer GSoapWrapperServer;
 	List<FCVirtualMachine> GVMList;
-	FCVirtualMachine[] GVMTarget;
 
 	public FossCloud() {
 		GVMList = new ArrayList<FCVirtualMachine>();
-		GVMTarget = new FCVirtualMachine[FCVMType.values().length];
 		LoadConfig();
 	}
 
@@ -148,12 +146,22 @@ public class FossCloud {
 
 		for (FCVMType vmType : FCVMType.values()) {
 			if (vmType.AutoStart) {
-				GVMTarget[vmType.ordinal()] = AddVirtualMachine(vmType, "");				
+				AddVirtualMachine(vmType, "");				
 			}
 		}
 
-		for(FCVirtualMachine fcvm : GVMList){
-			fcvm.AllocateVM();
+// Start VMs with static IP
+		for(FCVirtualMachine fcvm : GVMList) {
+			if (fcvm.getType().StaticIP) {
+				fcvm.AllocateVM();
+			}
+		}
+
+// Start VMs with dynamic IP
+		for(FCVirtualMachine fcvm : GVMList) {
+			if (!fcvm.getType().StaticIP) {
+				fcvm.AllocateVM();
+			}
 		}
 	}
 
@@ -289,7 +297,6 @@ public class FossCloud {
 					avgLP = sumLP / qtVM; 
 					if (avgLP < vmType.LowerThreshold) {
 						if (VMtoRelease != null) {
-							EvaluateVMTarget(vmType, VMtoRelease);
 							GVMList.remove(VMtoRelease);
 							VMtoRelease.DeleteVM();
 
@@ -305,49 +312,47 @@ public class FossCloud {
 		}
 	}
 
-	public void EvaluateVMTarget(FCVMType AType, FCVirtualMachine AvmToIgnore) {
-		if (AType == null) {
-// Evaluate VM target for each VM Type
-			for (FCVMType vmType : FCVMType.values()) {
-				EvaluateVMTarget(vmType, AvmToIgnore);
-			}
-		} else {
-// Evaluate VM target for given VM Type
-			FCVirtualMachine vmTarget = null;
-
-			for (FCVirtualMachine fcvm : GVMList) {
-				if (fcvm.getType() == AType) {
-					if (!fcvm.equals(AvmToIgnore)) {
-						if (fcvm.isVMDeployed() && fcvm.isOSReady()) {
-							if (vmTarget == null) {
-								vmTarget = fcvm;
-							} else {
-								if (fcvm.getLoadPrediction() < vmTarget.getLoadPrediction()) {
-									vmTarget = fcvm;
-								}
-							}
-						}
-					}
-				}
-			}
-
-			if (vmTarget != null)
-				if (!vmTarget.equals(GVMTarget[AType.ordinal()]))
-					System.out.println(
-						"Current target of \"" + vmTarget.getType().Name +
-						"\" is VM ID \"" + vmTarget.getID() + "\" IP " + vmTarget.getNetworkIP());
-
-			GVMTarget[AType.ordinal()] = vmTarget;
-		}
-	}
-	
 	public void StopSoapWrapperServer() {
 		if (GSoapWrapperServer != null)
 			GSoapWrapperServer.StopSoapWrapperServer();
 	}
 	
 	public FCVirtualMachine getVMTarget(FCVMType AType) {
-		return GVMTarget[AType.ordinal()];
+		FCVirtualMachine firstVMType = null;
+		FCVirtualMachine nextVMTarget = null;
+		boolean foundLastVMTarger = false;
+		
+		for (FCVirtualMachine vmType : GVMList) {
+			if (nextVMTarget == null) {
+				if (vmType.getType() == AType) {
+					if (vmType.isOSReady() && vmType.isVMDeployed()) {
+						if (foundLastVMTarger) {
+							nextVMTarget = vmType;
+						}
+					
+						if (firstVMType == null) {
+							firstVMType = vmType;
+						}
+					
+						if (AType.IDLastVMTarget == vmType.getID()) {
+							foundLastVMTarger = true;
+						}
+					}
+				}
+			}
+		}		
+		
+		if (nextVMTarget == null) {
+			if (firstVMType != null) {
+				AType.IDLastVMTarget = firstVMType.getID();
+			}
+
+			return firstVMType;
+		} else {
+			AType.IDLastVMTarget = nextVMTarget.getID();
+			return nextVMTarget;
+		}
+	
 	}
 	
 	public Client getOneClient() {

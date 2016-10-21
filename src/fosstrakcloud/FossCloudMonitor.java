@@ -18,7 +18,6 @@ public class FossCloudMonitor extends Thread {
 		while (GRunning) {
 			GFossCloud.EvaluateAllocVM();
 			GFossCloud.EvaluateReleaseVM();
-			GFossCloud.EvaluateVMTarget(null, null);
 
 			try {
 				Thread.sleep((long) GInterval * 1000);

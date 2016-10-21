@@ -7,7 +7,6 @@ import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 import com.sun.net.httpserver.HttpExchange;
@@ -54,6 +53,10 @@ public class CPanelHandler implements HttpHandler {
 			}
 			
 // Control panel interface
+			String uri = http.getRequestURI().toASCIIString();
+			if(!(uri.equals("/") || uri.equalsIgnoreCase("/favicon.ico"))) {
+				System.out.println("URI: " + uri);
+			}
 			String response = ControlPanelHTML();
 			writeResponse(http, response);
 
@@ -136,37 +139,41 @@ public class CPanelHandler implements HttpHandler {
 				vmType.Name = parms.get("name");
 				vmType.AutoStart = Boolean.parseBoolean(parms.get("auto_start"));
 				vmType.Scalable = Boolean.parseBoolean(parms.get("scalable"));
-				vmType.LowerThreshold = Integer.parseInt(parms.get("lower_threshold"));
-				vmType.UpperThreshold = Integer.parseInt(parms.get("upper_threshold"));
-				vmType.ServicePort = Integer.parseInt(parms.get("service_port"));
-				vmType.ServiceURI = parms.get("service_uri");
-				vmType.CPU = Float.parseFloat(parms.get("cpu"));
-				vmType.Memory = Integer.parseInt(parms.get("memory"));
-				vmType.Disk_Image = parms.get("disk_image");
-				vmType.Image_Uname = parms.get("image_uname");
-				vmType.Network = parms.get("network");
-				vmType.Network_Uname = parms.get("network_uname");
-				vmType.IP = parms.get("ip");
-				
+				vmType.StaticIP = Boolean.parseBoolean(parms.get("static_ip"));
+				vmType.LowerThreshold = tryParseInt(parms.get("lower_threshold"));
+				vmType.UpperThreshold = tryParseInt(parms.get("upper_threshold"));
+				vmType.ServicePort = tryParseInt(parms.get("service_port"));
+				vmType.Template = parms.get("template");
+
 				vmType.SaveConfig();
 				System.out.println("done!");
 			}
 		}
 	}
 	
+	private int tryParseInt(String value) { 
+		 try {  
+		     return Integer.parseInt("0" + value);  
+		  } catch(NumberFormatException nfe) {  
+		      // Log exception.
+		      return 0;
+		  }  
+		}
+
 	private String ControlPanelHTML() {
 		return
 			"<!DOCTYPE html>" +
 			"<html>" +
 			"<head>" +
-			"<title>IoT Scalability Manager - Control Panel</title>" +
+			"<title>Eliot Scalability Manager - Control Panel</title>" +
+			"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\">" +
 			"</head>" +
 
 			"<body>" +
 			"<font face=\"verdana\" size=\"2\">" +
-			"<h2>IoT Scalability Manager</h2>" +
+			"<h2>Eliot Scalability Manager</h2>" +
 
-			"<fieldset style=\"border-radius: 10px;\">" +
+			"<fieldset style=\"border-radius: 10px; width: 1%\">" +
 			"<legend><h3>Control Panel</h3></legend>" +
 
 			"<fieldset style=\"border-radius: 10px;\">" +
@@ -211,8 +218,15 @@ public class CPanelHandler implements HttpHandler {
 		String html = "";
 		String selectVM = "";
 		String selected = "";
-		
-		
+		String vmTemplate = vmTypeEd.Template;
+
+		vmTemplate = vmTemplate.replaceAll("&", "&amp;");
+		vmTemplate = vmTemplate.replaceAll("\"", "&quot;");
+		vmTemplate = vmTemplate.replaceAll("<", "&lt;");
+		vmTemplate = vmTemplate.replaceAll(">", "&gt;");
+		vmTemplate = vmTemplate.replaceAll("'", "&#39;");
+		vmTemplate = vmTemplate.replaceAll("/", "&#47;");
+	
 		selectVM = "<select name=\"vm_id\" onchange=\"this.form.submit()\" style=\"border: 0; font-weight: bold\">";
 		
 		for (FCVMType vmt : FCVMType.values()) {
@@ -228,7 +242,7 @@ public class CPanelHandler implements HttpHandler {
 
 		selectVM = selectVM + "</select>";
 
-		html = html + "</br>" +
+		html = html + "<br>" +
 			"<form action=\"/\" method=\"post\">" +
 			"<fieldset style=\"border-radius: 10px;\">" +
 			"<legend><b>Template Parameters of " + selectVM + "</b>" +
@@ -238,34 +252,33 @@ public class CPanelHandler implements HttpHandler {
 			"<input type=\"hidden\" name=\"vm_template\" value=\"" + vmTypeEd.ID + "\">" +
 			"<table cellpadding=\"3\">" +
 				"<tr>" +
-					"<td>Auto Start?<br>" +
+					"<td width=\"25%\">Auto Start?<br>" +
 						"<input type=\"radio\" name=\"auto_start\" value=\"true\"" + htmlRadioChacked(vmTypeEd.AutoStart) + ">True&nbsp;&nbsp;" +
-						"<input type=\"radio\" name=\"auto_start\" value=\"false\"" + htmlRadioChacked(!vmTypeEd.AutoStart) + ">False</td>" +
-					"<td>Scalable?<br>" +
+						"<input type=\"radio\" name=\"auto_start\" value=\"false\"" + htmlRadioChacked(!vmTypeEd.AutoStart) + ">False" +
+					"</td>" +
+					"<td width=\"25%\">Scalable?<br>" +
 						"<input type=\"radio\" name=\"scalable\" value=\"true\"" + htmlRadioChacked(vmTypeEd.Scalable) + ">True&nbsp;&nbsp;" +
-						"<input type=\"radio\" name=\"scalable\" value=\"false\"" + htmlRadioChacked(!vmTypeEd.Scalable) + ">False</td>" +
-						"<td>&nbsp;</td>" +
-						"<td>&nbsp;</td>" +
+						"<input type=\"radio\" name=\"scalable\" value=\"false\"" + htmlRadioChacked(!vmTypeEd.Scalable) + ">False" +
+					"</td>" +
+					"<td width=\"25%\">Static IP?<br>" +
+						"<input type=\"radio\" name=\"static_ip\" value=\"true\"" + htmlRadioChacked(vmTypeEd.StaticIP) + ">True&nbsp;&nbsp;" +
+						"<input type=\"radio\" name=\"static_ip\" value=\"false\"" + htmlRadioChacked(!vmTypeEd.StaticIP) + ">False" +
+					"</td>" +						
+					"<td width=\"25%\">&nbsp;" + /*Name*/ "<br><input type=\"hidden\" name=\"name\" value=\"" + vmTypeEd.Name + "\"></td>" +
 				"</tr>" +
 				"<tr>" +
-					"<td>Name<br><input type=\"text\" name=\"name\" value=\"" + vmTypeEd.Name + "\"></td>" +
 					"<td>Lower Threshold<br><input type=\"text\" name=\"lower_threshold\" value=\"" + vmTypeEd.LowerThreshold + "\"></td>" +
+					"<td rowspan=\"4\" colspan=\"3\">Template<br><textarea name=\"template\" rows=\"11\" cols=\"73\">" + vmTemplate + "</textarea></td>" +
+				"</tr>" +
 					"<td>Upper Threshold<br><input type=\"text\" name=\"upper_threshold\" value=\"" + vmTypeEd.UpperThreshold + "\"></td>" +
+				"</tr>" +
 					"<td>Service Port<br><input type=\"text\" name=\"service_port\" value=\"" + vmTypeEd.ServicePort + "\"></td>" +
 				"</tr>" +
-				"<tr>" +
+				"</tr>" +
 					"<td>Service URI<br><input type=\"text\" name=\"service_uri\" value=\"" + vmTypeEd.ServiceURI + "\"></td>" +
-					"<td>CPU<br><input type=\"text\" name=\"cpu\" value=\"" + String.format(Locale.ENGLISH, "%.1f", vmTypeEd.CPU) + "\"></td>" +
-					"<td>Memory<br><input type=\"text\" name=\"memory\" value=\"" + vmTypeEd.Memory + "\"></td>" +
-					"<td>Disk Image<br><input type=\"text\" name=\"disk_image\" value=\"" + vmTypeEd.Disk_Image + "\"></td>" +
-				"</tr>" +
 				"<tr>" +
-					"<td>Image User Name<br><input type=\"text\" name=\"image_uname\" value=\"" + vmTypeEd.Image_Uname + "\"></td>" +
-					"<td>Network<br><input type=\"text\" name=\"network\" value=\"" + vmTypeEd.Network + "\"></td>" +
-					"<td>Network User Name<br><input type=\"text\" name=\"network_uname\" value=\"" + vmTypeEd.Network_Uname + "\"></td>" +
-					"<td>IP<br><input type=\"text\" name=\"ip\" value=\"" + vmTypeEd.IP + "\"></td>" +
+					"<td><input type=\"submit\" value=\"Save Configuration\"></td>" +
 				"</tr>" +
-				"<tr><td><input type=\"submit\" value=\"Save Configuration\"></td></tr>" +
 			"</table>" +
 			"</form>" +
 			"</fieldset>";
